@@ -1,0 +1,45 @@
+pipeline {
+    agent any
+    tools{
+        nodejs 'mynode'
+    }
+    stages {
+        stage('git cloning') {
+            steps {
+                echo 'cloning files from github'
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/SAKSHISALUNKE/Pipeline.git']])
+            }
+        }
+        stage('Build') {
+            steps {
+                echo 'Building nodejs project'
+                sh 'npm install'
+            }
+        }
+        stage('Test') {
+            steps {
+                echo 'Testing project'
+                sh './node_modules/mocha/bin/_mocha --exit ./test/test.js'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying nodejs project on live server'
+                script{
+                    sshagent(['a3bb7c61-a17f-4e2a-b58b-ccb66bfb2730']) {
+                    sh '''
+                           ssh -o StrictHostKeyChecking=no ubuntu@65.2.78.83<<EOF
+                            cd /home/ubuntu/inode/
+                            git pull https://github.com/SAKSHISALUNKE/Pipeline.git
+                            npm install
+                            sudo npm install -g pm2
+                            pm2 restart index.js || pm2 start index.js
+		                    exit
+                            EOF     
+                       '''
+                   } 
+                }
+            }
+        }
+    }
+}
